@@ -25,11 +25,11 @@ def init_training_delay(dataloader, net, criterion, optimizer, delay):
     print('\nInitliazing delay: %d' % delay)
     net.train()
     state_dict_queue = deque()
-    state_dict_queue.appendleft(net_0.state_dict())
+    state_dict_queue.appendleft(net.state_dict())
     for batch_idx, (inputs, targets) in enumerate(dataloader):
         if batch_idx >= delay - 1:
             break
-        state_dict_queue.appendleft(net_0.state_dict())
+        state_dict_queue.appendleft(net.state_dict())
 
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
