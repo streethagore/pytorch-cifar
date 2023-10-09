@@ -18,7 +18,7 @@ from collections import deque
 
 def transfer_gradients(net_1, net_2):
     for name, param in net_1.named_parameters():
-        net_2.get_parameter(name).grad = param.grad
+        net_2.get_parameter(name).grad = param.grad.clone()
 
 
 def init_training_delay(dataloader, net, criterion, optimizer, delay):
@@ -59,8 +59,8 @@ def train(dataloader, net_0, net_k, criterion, optimizer, epoch):
         loss = criterion(outputs, targets)
         loss.backward()
 
-        # with torch.no_grad():
-        #     _ = net_k(inputs)  # update running stats
+        with torch.no_grad():
+            _ = net_k(inputs)  # update running stats
         net_0.state_stack.appendleft(net_k.state_dict())
         transfer_gradients(net_0, net_k)
         optimizer.step()
@@ -192,13 +192,13 @@ if __name__ == '__main__':
                           momentum=0.9, weight_decay=5e-4)
 
     # Scheduler
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
 
     # Init delay
     net_0.state_stack = init_training_delay(trainloader, net_k, criterion, optimizer, args.delay)
     net_k.best_acc = 0.0
-    for epoch in range(start_epoch, start_epoch + 200):
+    for epoch in range(start_epoch, start_epoch + 100):
         train(trainloader, net_0, net_k, criterion, optimizer, epoch)
         test(testloader, net_k, criterion, epoch)
         scheduler.step()
