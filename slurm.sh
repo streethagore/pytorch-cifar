@@ -1,9 +1,9 @@
 #!/bin/bash
 
-#SBATCH --job-name=async
+#SBATCH --job-name=delay
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
-#SBATCH --time=04:30:00
+#SBATCH --time=03:30:00
 #SBATCH --output=slurm/%x-%j.out
 #SBATCH --error=slurm/%x-%j.err
 
