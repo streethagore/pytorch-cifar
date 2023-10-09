@@ -59,8 +59,8 @@ def train(dataloader, net_0, net_k, criterion, optimizer, epoch):
         loss = criterion(outputs, targets)
         loss.backward()
 
-        with torch.no_grad():
-            _ = net_k(inputs)  # update running stats
+        # with torch.no_grad():
+        #     _ = net_k(inputs)  # update running stats
         net_0.state_stack.appendleft(net_k.state_dict())
         transfer_gradients(net_0, net_k)
         optimizer.step()
@@ -112,7 +112,7 @@ def test(dataloader, net, criterion, epoch):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
-    parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+    parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
