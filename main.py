@@ -56,14 +56,14 @@ def train(dataloader, net_0, net_k, criterion, optimizer, epoch):
         net_0.load_state_dict(net_0.state_stack.pop())
 
         outputs = net_0(inputs)
-        loss = criterion(outputs, targets)
-        loss.backward()
-
         with torch.no_grad():
             _ = net_k(inputs)  # update running stats
-        net_0.state_stack.appendleft(net_k.state_dict())
+        loss = criterion(outputs, targets)
+        loss.backward()
         transfer_gradients(net_0, net_k)
         optimizer.step()
+
+        net_0.state_stack.appendleft(net_k.state_dict())
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
