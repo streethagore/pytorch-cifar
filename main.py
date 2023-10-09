@@ -75,7 +75,6 @@ def train(dataloader, net_0, net_k, criterion, optimizer, epoch):
 
 
 def test(dataloader, net, criterion, epoch):
-    global best_acc
     net.eval()
     test_loss = 0
     correct = 0
@@ -96,7 +95,7 @@ def test(dataloader, net, criterion, epoch):
 
     # Save checkpoint.
     acc = 100. * correct / total
-    if acc > best_acc:
+    if acc > net.best_acc:
         print('Saving..')
         state = {
             'net': net.state_dict(),
@@ -106,7 +105,7 @@ def test(dataloader, net, criterion, epoch):
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
         torch.save(state, './checkpoint/ckpt.pth')
-        best_acc = acc
+        net.best_acc = acc
 
 
 if __name__ == '__main__':
@@ -119,8 +118,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    best_acc = 0  # best test accuracy
-    start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
     # Data
     print('==> Preparing data..')
@@ -175,25 +172,25 @@ if __name__ == '__main__':
         # net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
 
+    start_epoch = 0  # start from epoch 0 or last checkpoint epoch
     if args.resume:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
         assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
         checkpoint = torch.load('./checkpoint/ckpt.pth')
         net_k.load_state_dict(checkpoint['net'])
-        best_acc = checkpoint['acc']
+        net_k.best_acc = checkpoint['acc']
         start_epoch = checkpoint['epoch']
 
     # Loss
     criterion = nn.CrossEntropyLoss()
 
     # Optimizer
-    optimizer = optim.SGD(net_k.parameters(), lr=args.lr,
-                          momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGD(net_k.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 
     # Scheduler
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
 
     # Init delay
     net_0.state_stack = init_training_delay(trainloader, net_k, criterion, optimizer, args.delay)
