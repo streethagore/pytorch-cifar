@@ -192,8 +192,8 @@ if __name__ == '__main__':
                           momentum=0.9, weight_decay=5e-4)
 
     # Scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
 
     # Init delay
     net_0.state_stack = init_training_delay(trainloader, net_k, criterion, optimizer, args.delay)
