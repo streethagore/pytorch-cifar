@@ -12,8 +12,9 @@ import os
 import argparse
 
 from models import *
-from utils import progress_bar
+from utils import progress_bar, AverageMeter, ProgressMeter
 from collections import deque
+from time import time
 
 
 def transfer_gradients(net_1, net_2):
@@ -40,18 +41,46 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay):
     return state_dict_queue
 
 
-def train(dataloader, model, model_, criterion, optimizer, epoch):
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
+
+
+def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
     print('\nEpoch: %d' % epoch)
     model.train()
     model_.train()
     train_loss = 0
     correct = 0
     total = 0
+    batch_time = AverageMeter('Time', ':6.3f')
+    data_time = AverageMeter('Data', ':6.3f')
+    losses = AverageMeter('Loss', ':.4e')
+    top1 = AverageMeter('Acc@1', ':6.2f')
+    progress = ProgressMeter(len(dataloader), [batch_time, data_time, losses, top1],
+                             prefix="Epoch: [{}]".format(epoch))
+    step = max(len(dataloader) // 10, 1)
+    end = time()
     for batch_idx, (inputs, targets) in enumerate(dataloader):
+        data_time.update(time() - end)
         inputs, targets = inputs.to(device), targets.to(device)
 
         optimizer.zero_grad()
         model_.zero_grad()
+        if batch_idx % sync_p == sync_p - 1:
+            model_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
         model_.load_state_dict(model_.state_stack.pop())
 
         outputs = model_(inputs)
@@ -63,37 +92,36 @@ def train(dataloader, model, model_, criterion, optimizer, epoch):
         optimizer.step()
 
         model_.state_stack.appendleft({k: v.clone() for k, v in model.state_dict().items()})
+        batch_time.update(time() - end)
 
-        train_loss += loss.item()
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                     % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+        losses.update(loss.item(), n=inputs.size(0))
+        top1.update(accuracy(outputs, targets), n=inputs.size(0))
+        if batch_idx % step == step - 1:
+            progress.display(batch_idx + 1)
+        end = time()
 
 
 def test(dataloader, model, criterion, epoch):
     model.eval()
-    test_loss = 0
-    correct = 0
-    total = 0
+    batch_time = AverageMeter('Time', ':6.3f')
+    data_time = AverageMeter('Data', ':6.3f')
+    losses = AverageMeter('Loss', ':.4e')
+    top1 = AverageMeter('Acc@1', ':6.2f')
+    progress = ProgressMeter(len(dataloader), [batch_time, data_time, losses, top1], prefix="Epoch: [{}]".format(epoch))
+    end = time()
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(dataloader):
+            data_time.update(time() - end)
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             loss = criterion(outputs, targets)
 
-            test_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
-
-            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                         % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+            losses.update(loss, n=inputs.size(0))
+            top1.update(accuracy(outputs, targets), n=inputs.size(0))
+            progress.display(batch_idx + 1)
 
     # Save checkpoint.
-    acc = 100. * correct / total
+    acc = 100. * top1.avg
     if acc > model.best_acc:
         print('Saving..')
         state = {
