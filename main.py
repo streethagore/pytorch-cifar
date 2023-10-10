@@ -113,6 +113,8 @@ def test(dataloader, model, criterion, epoch):
 
             losses.update(loss, n=inputs.size(0))
             top1.update(accuracy(outputs, targets)[0].item(), n=inputs.size(0))
+            batch_time.update(time() - end, n=inputs.size(0))
+            end = time()
     progress.display(batch_idx + 1)
 
     # Save checkpoint.
