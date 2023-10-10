@@ -58,13 +58,10 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train(dataloader, model, model_, criterion, optimizer, epoch):
+def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
     print('\nEpoch: %d' % epoch)
     model.train()
     model_.train()
-    train_loss = 0
-    correct = 0
-    total = 0
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -79,7 +76,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch):
 
         optimizer.zero_grad()
         model_.zero_grad()
-        if batch_idx % sync_p == sync_p - 1:
+        if sync_p > 0 and batch_idx % sync_p == sync_p - 1:
             model_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
         model_.load_state_dict(model_.state_stack.pop())
 
@@ -140,6 +137,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
+    parser.add_argument('--sync-p', default=0, type=int, help='synchronization period')
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
     args = parser.parse_args()
@@ -223,6 +221,6 @@ if __name__ == '__main__':
     # Init delay
     net_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
     for epoch in range(start_epoch, start_epoch + 100):
-        train(trainloader, net, net_, criterion, optimizer, epoch)
+        train(trainloader, net, net_, criterion, optimizer, epoch, args.sync_p)
         test(testloader, net, criterion, epoch)
         scheduler.step()
