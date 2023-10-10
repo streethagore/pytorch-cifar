@@ -115,7 +115,7 @@ def test(dataloader, model, criterion, epoch):
 
             losses.update(loss, n=inputs.size(0))
             top1.update(accuracy(outputs, targets)[0].item(), n=inputs.size(0))
-            progress.display(batch_idx + 1)
+    progress.display(batch_idx + 1)
 
     # Save checkpoint.
     acc = 100. * top1.avg
