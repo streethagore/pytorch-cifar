@@ -41,10 +41,10 @@ def init_training_delay(dataloader, net, criterion, optimizer, delay):
     return state_dict_queue
 
 
-def train(dataloader, net_0, net_k, criterion, optimizer, epoch):
+def train(dataloader, model, model_, criterion, optimizer, epoch):
     print('\nEpoch: %d' % epoch)
-    net_0.train()
-    net_k.train()
+    model.train()
+    model_.train()
     train_loss = 0
     correct = 0
     total = 0
@@ -52,18 +52,18 @@ def train(dataloader, net_0, net_k, criterion, optimizer, epoch):
         inputs, targets = inputs.to(device), targets.to(device)
 
         optimizer.zero_grad()
-        net_0.zero_grad()
-        net_0.load_state_dict(net_0.state_stack.pop())
+        model_.zero_grad()
+        model_.load_state_dict(model_.state_stack.pop())
 
-        outputs = net_0(inputs)
+        outputs = model_(inputs)
         with torch.no_grad():
-            _ = net_k(inputs)  # update running stats
+            _ = model(inputs)  # update running stats
         loss = criterion(outputs, targets)
         loss.backward()
-        transfer_gradients(net_0, net_k)
+        transfer_gradients(model_, model)
         optimizer.step()
 
-        net_0.state_stack.appendleft(net_k.state_dict())
+        model_.state_stack.appendleft(model.state_dict())
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -149,8 +149,8 @@ if __name__ == '__main__':
     # Model
     print('==> Building model..')
     # net = VGG('VGG19')
-    net_0 = ResNet18()
-    net_k = ResNet18()
+    net = ResNet18()
+    net_ = ResNet18()
     # net = PreActResNet18()
     # net = GoogLeNet()
     # net = DenseNet121()
@@ -165,37 +165,37 @@ if __name__ == '__main__':
     # net = RegNetX_200MF()
     # net = SimpleDLA()
 
-    net_0.to(device)
-    net_k.to(device)
+    net.to(device)
+    net_.to(device)
 
     if device == 'cuda':
         # net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
 
     start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+    net.best_acc = 0.0
     if args.resume:
         # Load checkpoint.
         print('==> Resuming from checkpoint..')
         assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
         checkpoint = torch.load('./checkpoint/ckpt.pth')
-        net_k.load_state_dict(checkpoint['net'])
-        net_k.best_acc = checkpoint['acc']
+        net.load_state_dict(checkpoint['net'])
+        net.best_acc = checkpoint['acc']
         start_epoch = checkpoint['epoch']
 
     # Loss
     criterion = nn.CrossEntropyLoss()
 
     # Optimizer
-    optimizer = optim.SGD(net_k.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 
     # Scheduler
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
 
     # Init delay
-    net_0.state_stack = init_training_delay(trainloader, net_k, criterion, optimizer, args.delay)
-    net_k.best_acc = 0.0
+    net_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
     for epoch in range(start_epoch, start_epoch + 100):
-        train(trainloader, net_0, net_k, criterion, optimizer, epoch)
-        test(testloader, net_k, criterion, epoch)
+        train(trainloader, net, net_, criterion, optimizer, epoch)
+        test(testloader, net, criterion, epoch)
         scheduler.step()
