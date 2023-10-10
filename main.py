@@ -67,7 +67,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     progress = ProgressMeter(len(dataloader), [batch_time, data_time, losses, top1],
-                             prefix="Epoch: [{}]".format(epoch))
+                             prefix="Train: [{}]".format(epoch))
     step = max(len(dataloader) // 10, 1)
     end = time()
     for batch_idx, (inputs, targets) in enumerate(dataloader):
