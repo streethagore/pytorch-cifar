@@ -26,13 +26,13 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay):
     model.train()
     state_dict_queue = deque()
     for batch_idx, (inputs, targets) in enumerate(dataloader):
+        optimizer.zero_grad()
         state_dict_queue.appendleft(model.state_dict())
         if batch_idx >= delay:
             break
 
         inputs, targets = inputs.to(device), targets.to(device)
-        optimizer.zero_grad()
-        outputs = net(inputs)
+        outputs = model(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
