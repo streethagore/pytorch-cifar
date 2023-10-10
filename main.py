@@ -20,7 +20,6 @@ def transfer_gradients(net_1, net_2):
 
 
 def init_training_delay(dataloader, model, criterion, optimizer, delay):
-    print('\nInitliazing delay: %d' % delay)
     model.train()
     state_dict_queue = deque()
     for batch_idx, (inputs, targets) in enumerate(dataloader):
@@ -116,7 +115,7 @@ def test(dataloader, model, criterion, epoch):
             batch_time.update(time() - end, n=inputs.size(0))
             end = time()
     progress.display(batch_idx + 1)
-    print(f'Test Epoch {epoch} - Data time {data_time.avg} - Batch time {batch_time.avg} - Loss {losses.avg} - Acc {top1.avg}')
+    print(f'Test Epoch {epoch} - Data {data_time.avg: 6.3f} - Time {batch_time.avg: 6.3f} - Loss {losses.avg: .4e} - Acc {top1.avg: 6.2f}')
 
     # Save checkpoint.
     acc = 100. * top1.avg
@@ -220,6 +219,7 @@ if __name__ == '__main__':
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
 
     # Init delay
+    print('\nInitliazing delay: %d' % args.delay)
     net_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
     for epoch in range(start_epoch, start_epoch + 100):
         train(trainloader, net, net_, criterion, optimizer, epoch, args.sync_p)
