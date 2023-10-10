@@ -58,7 +58,7 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
+def train(dataloader, model, model_, criterion, optimizer, epoch):
     print('\nEpoch: %d' % epoch)
     model.train()
     model_.train()
