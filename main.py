@@ -74,15 +74,15 @@ def train(dataloader, model, model_, criterion, optimizer, epoch):
                      % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
 
-def test(dataloader, net, criterion, epoch):
-    net.eval()
+def test(dataloader, model, criterion, epoch):
+    model.eval()
     test_loss = 0
     correct = 0
     total = 0
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(dataloader):
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs = net(inputs)
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
 
             test_loss += loss.item()
@@ -95,17 +95,17 @@ def test(dataloader, net, criterion, epoch):
 
     # Save checkpoint.
     acc = 100. * correct / total
-    if acc > net.best_acc:
+    if acc > model.best_acc:
         print('Saving..')
         state = {
-            'net': net.state_dict(),
+            'net': model.state_dict(),
             'acc': acc,
             'epoch': epoch,
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
         torch.save(state, './checkpoint/ckpt.pth')
-        net.best_acc = acc
+        model.best_acc = acc
 
 
 if __name__ == '__main__':
