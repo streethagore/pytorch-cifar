@@ -27,7 +27,7 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay):
     state_dict_queue = deque()
     for batch_idx, (inputs, targets) in enumerate(dataloader):
         optimizer.zero_grad()
-        state_dict_queue.appendleft([(k, v.clone()) for k, v in model.state_dict()])
+        state_dict_queue.appendleft([(k, v.clone()) for k, v in model.state_dict().items()])
         if batch_idx >= delay:
             break
 
@@ -62,7 +62,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch):
         transfer_gradients(model_, model)
         optimizer.step()
 
-        model_.state_stack.appendleft([(k, v.clone()) for k, v in model.state_dict()])
+        model_.state_stack.appendleft([(k, v.clone()) for k, v in model.state_dict().items()])
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
