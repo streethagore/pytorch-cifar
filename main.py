@@ -104,7 +104,8 @@ def test(dataloader, model, criterion, epoch):
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
-    progress = ProgressMeter(len(dataloader), [batch_time, data_time, losses, top1], prefix="Epoch: [{}]".format(epoch))
+    progress = ProgressMeter(len(dataloader), [batch_time, data_time, losses, top1],
+                             prefix="Test: [{}]".format(epoch))
     end = time()
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(dataloader):
