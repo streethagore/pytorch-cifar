@@ -1,8 +1,5 @@
 '''Train CIFAR10 with PyTorch.'''
-import torch
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 
 import torchvision
@@ -12,7 +9,7 @@ import os
 import argparse
 
 from models import *
-from utils import progress_bar, AverageMeter, ProgressMeter
+from utils import AverageMeter, ProgressMeter
 from collections import deque
 from time import time
 
