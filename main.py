@@ -21,15 +21,14 @@ def transfer_gradients(net_1, net_2):
         net_2.get_parameter(name).grad = param.grad.clone()
 
 
-def init_training_delay(dataloader, net, criterion, optimizer, delay):
+def init_training_delay(dataloader, model, criterion, optimizer, delay):
     print('\nInitliazing delay: %d' % delay)
-    net.train()
+    model.train()
     state_dict_queue = deque()
-    state_dict_queue.appendleft(net.state_dict())
     for batch_idx, (inputs, targets) in enumerate(dataloader):
-        if batch_idx >= delay - 1:
+        state_dict_queue.appendleft(model.state_dict())
+        if batch_idx >= delay:
             break
-        state_dict_queue.appendleft(net.state_dict())
 
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
