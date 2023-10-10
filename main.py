@@ -116,6 +116,7 @@ def test(dataloader, model, criterion, epoch):
             batch_time.update(time() - end, n=inputs.size(0))
             end = time()
     progress.display(batch_idx + 1)
+    print(f'Test Epoch {epoch} - Data time {data_time.avg} - Batch time {batch_time.avg} - Loss {losses.avg} - Acc {top1.avg}')
 
     # Save checkpoint.
     acc = 100. * top1.avg
