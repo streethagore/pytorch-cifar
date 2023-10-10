@@ -92,7 +92,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
         batch_time.update(time() - end)
 
         losses.update(loss.item(), n=inputs.size(0))
-        top1.update(accuracy(outputs, targets), n=inputs.size(0))
+        top1.update(accuracy(outputs, targets)[0].item(), n=inputs.size(0))
         if batch_idx % step == step - 1:
             progress.display(batch_idx + 1)
         end = time()
@@ -114,7 +114,7 @@ def test(dataloader, model, criterion, epoch):
             loss = criterion(outputs, targets)
 
             losses.update(loss, n=inputs.size(0))
-            top1.update(accuracy(outputs, targets), n=inputs.size(0))
+            top1.update(accuracy(outputs, targets)[0].item(), n=inputs.size(0))
             progress.display(batch_idx + 1)
 
     # Save checkpoint.
@@ -142,7 +142,7 @@ if __name__ == '__main__':
                         help='resume from checkpoint')
     args = parser.parse_args()
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else torch.device('mps')
 
     # Data
     print('==> Preparing data..')
