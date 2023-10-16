@@ -71,10 +71,10 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
         inputs, targets = inputs.to(device), targets.to(device)
 
         optimizer.zero_grad()
-        model_.zero_grad()
         if sync_p > 0 and batch_idx % sync_p == sync_p - 1:
             model_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
         model_.load_state_dict(model_.state_stack.pop())
+        model_.zero_grad()
 
         outputs = model_(inputs)
         with torch.no_grad():
