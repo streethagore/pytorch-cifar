@@ -49,8 +49,8 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def l2_regularization(model):
-    l2_norm = torch.tensor(0.0, device=model.device)
+def l2_regularization(model, device):
+    l2_norm = torch.tensor(0.0, device=device)
     for k, p in model.named_parameters():
         l2_norm += p.norm()
     return l2_norm
@@ -81,7 +81,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, custom_decay):
             _ = model(inputs)  # update running stats
         loss = criterion(outputs, targets)
         if custom_decay:
-            loss += l2_regularization(model) * 5e-4
+            loss += l2_regularization(model, device) * 5e-4
         loss.backward()
         transfer_gradients(model_, model)
         optimizer.step()
