@@ -147,7 +147,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
-    parser.add_argument('--custom-decay', action='store_strue', default=False)
+    parser.add_argument('--custom-decay', action='store_true', default=False)
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
     args = parser.parse_args()
