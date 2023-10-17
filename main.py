@@ -12,6 +12,7 @@ from models import *
 from utils import AverageMeter, ProgressMeter
 from collections import deque
 from time import time
+import wandb
 
 
 def transfer_gradients(net_1, net_2):
@@ -54,7 +55,7 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
+def train(dataloader, model, model_, criterion, optimizer, epoch):
     print('\nEpoch: %d' % epoch)
     model.train()
     model_.train()
@@ -71,8 +72,6 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
         inputs, targets = inputs.to(device), targets.to(device)
 
         optimizer.zero_grad()
-        if sync_p > 0 and batch_idx % sync_p == sync_p - 1:
-            model_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
         model_.load_state_dict(model_.state_stack.pop())
         model_.zero_grad()
 
@@ -92,6 +91,8 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, sync_p):
         if batch_idx % step == step - 1:
             progress.display(batch_idx + 1)
         end = time()
+    # log metrics
+    wandb.log({'loss/train': losses.avg, 'acc/train': top1.avg})
 
 
 def test(dataloader, model, criterion, epoch):
@@ -114,8 +115,10 @@ def test(dataloader, model, criterion, epoch):
             top1.update(accuracy(outputs, targets)[0].item(), n=inputs.size(0))
             batch_time.update(time() - end, n=inputs.size(0))
             end = time()
-    progress.display(batch_idx + 1)
+    # progress.display(batch_idx + 1)
     print(f'Test Epoch {epoch} - Data {data_time.avg: 6.3f} - Time {batch_time.avg: 6.3f} - Loss {losses.avg: .4e} - Acc {top1.avg: 6.2f}')
+    # log metrics
+    wandb.log({'loss/test': losses.avg, 'acc/test': top1.avg})
 
     # Save checkpoint.
     acc = 100. * top1.avg
@@ -137,7 +140,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
-    parser.add_argument('--sync-p', default=0, type=int, help='synchronization period')
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
     args = parser.parse_args()
@@ -221,7 +223,10 @@ if __name__ == '__main__':
     # Init delay
     print('\nInitliazing delay: %d' % args.delay)
     net_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
+    wandb.init(project='Delayed Gradients', entity='streethagore', config=args, group="uniform-delay")
     for epoch in range(start_epoch, start_epoch + 100):
-        train(trainloader, net, net_, criterion, optimizer, epoch, args.sync_p)
+        train(trainloader, net, net_, criterion, optimizer, epoch)
         test(testloader, net, criterion, epoch)
         scheduler.step()
+    wandb.summary["best-accuracy"] = net.best_acc
+    wandb.finish()
