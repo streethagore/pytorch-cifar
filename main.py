@@ -120,7 +120,7 @@ def test(dataloader, model, criterion, epoch):
     # Save checkpoint.
     acc = 100. * top1.avg
     if acc > model.best_acc:
-        print('Saving..')
+        # print('Saving..')
         state = {
             'net': model.state_dict(),
             'acc': acc,
