@@ -53,7 +53,7 @@ def l2_regularization(model, device):
     l2_norm = torch.tensor(0.0, device=device)
     for k, p in model.named_parameters():
         l2_norm += p.norm()
-    return l2_norm
+    return l2_norm / 2.0
 
 
 def train(dataloader, model, model_, criterion, optimizer, epoch, custom_decay):
