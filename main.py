@@ -233,10 +233,10 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
 
     # Optimizer
-    if args.custom_decay:
-        optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
-    else:
+    if args.decay_mode == 'pytorch':
         optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    else:
+        optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
 
     # Scheduler
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
