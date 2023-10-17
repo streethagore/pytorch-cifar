@@ -13,7 +13,7 @@ source /usr/local/miniconda/etc/profile.d/conda.sh
 conda activate async
 
 delay=$1
-logfile="output/delay_${delay}"
+logfile="output/resnet18-delay_${delay}"
 
 custom_decay=$2
 if [ $custom_decay == 'true' ]; then
@@ -21,6 +21,7 @@ if [ $custom_decay == 'true' ]; then
   logfile="${logfile}-custom_decay"
 else
   decay_cmd=''
+  logfile="${logfile}-standard_decay"
 fi
 
 logfile="${logfile}.log"
