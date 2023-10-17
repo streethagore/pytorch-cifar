@@ -2,7 +2,6 @@
 
 #SBATCH --job-name=delay
 #SBATCH --nodes=1
-#SBATCH --partition=jazzy
 #SBATCH --gpus-per-node=1
 #SBATCH --time=03:30:00
 #SBATCH --output=slurm/%x-%j.out
