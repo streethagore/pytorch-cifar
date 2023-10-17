@@ -13,5 +13,15 @@ source /usr/local/miniconda/etc/profile.d/conda.sh
 conda activate async
 
 delay=$1
+logfile="output/delay_${delay}"
 
-python -u main.py --delay $delay | tee "output/delay_${delay}.log"
+custom_decay=$2
+if [ $custom_decay == 'true' ]; then
+  decay_cmd='--custom-decay'
+  logfile="${logfile}-custom_decay"
+else
+  decay_cmd=''
+fi
+
+logfile="${logfile}.log"
+python -u main.py --lr 0.05 --delay $delay $decay_cmd | tee "${logfile}"

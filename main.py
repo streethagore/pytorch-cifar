@@ -1,12 +1,6 @@
 '''Train CIFAR10 with PyTorch.'''
 import torch.optim as optim
-import torch.backends.cudnn as cudnn
-
 import torchvision
-import torchvision.transforms as transforms
-
-import os
-import argparse
 
 from models import *
 from utils import AverageMeter, ProgressMeter
@@ -55,7 +49,14 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train(dataloader, model, model_, criterion, optimizer, epoch):
+def l2_regularization(model):
+    l2_norm = torch.tensor(0.0, device=model.device)
+    for k, p in model.named_parameters():
+        l2_norm += p.norm()
+    return l2_norm
+
+
+def train(dataloader, model, model_, criterion, optimizer, epoch, custom_decay):
     print('\nEpoch: %d' % epoch)
     model.train()
     model_.train()
@@ -79,6 +80,8 @@ def train(dataloader, model, model_, criterion, optimizer, epoch):
         with torch.no_grad():
             _ = model(inputs)  # update running stats
         loss = criterion(outputs, targets)
+        if custom_decay:
+            loss += l2_regularization(model) * 5e-4
         loss.backward()
         transfer_gradients(model_, model)
         optimizer.step()
@@ -136,10 +139,15 @@ def test(dataloader, model, criterion, epoch):
 
 
 if __name__ == '__main__':
+    import os
+    import argparse
+    import torch.backends.cudnn as cudnn
+    import torchvision.transforms as transforms
 
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
+    parser.add_argument('--custom-decay', action='store_strue', default=False)
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
     args = parser.parse_args()
@@ -214,7 +222,10 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
 
     # Optimizer
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    if args.custom_decay:
+        optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
+    else:
+        optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 
     # Scheduler
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
@@ -223,6 +234,7 @@ if __name__ == '__main__':
     # Init delay
     print('\nInitliazing delay: %d' % args.delay)
     net_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
+    os.environ["WANDB_MODE"] = "offline"
     wandb.init(project='Delayed Gradients', entity='streethagore', config=args, group="uniform-delay")
     for epoch in range(start_epoch, start_epoch + 100):
         train(trainloader, net, net_, criterion, optimizer, epoch)
