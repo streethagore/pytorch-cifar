@@ -52,7 +52,8 @@ def accuracy(output, target, topk=(1,)):
 def l2_regularization_from_loss(model, device):
     l2_norm = torch.tensor(0.0, device=device)
     for k, p in model.named_parameters():
-        l2_norm += p.norm() ** 2
+        if p.requires_grad:
+            l2_norm += p.norm() ** 2
     return l2_norm / 2.0
 
 
