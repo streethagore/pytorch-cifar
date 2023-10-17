@@ -248,7 +248,7 @@ if __name__ == '__main__':
     os.environ["WANDB_MODE"] = "offline"
     wandb.init(project='Delayed Gradients', entity='streethagore', config=args, group="uniform-delay")
     for epoch in range(start_epoch, start_epoch + 100):
-        train(trainloader, net, net_, criterion, optimizer, epoch, args.custom_decay)
+        train(trainloader, net, net_, criterion, optimizer, epoch, args.decay_mode)
         test(testloader, net, criterion, epoch)
         scheduler.step()
     wandb.summary["best-accuracy"] = net.best_acc
