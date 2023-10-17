@@ -52,14 +52,15 @@ def accuracy(output, target, topk=(1,)):
 def l2_regularization_from_loss(model, device):
     l2_norm = torch.tensor(0.0, device=device)
     for k, p in model.named_parameters():
-        if p.requires_grad:
+        if p.requires_grad and p.grad is not None:
             l2_norm += p.norm() ** 2
     return l2_norm / 2.0
 
 
 def l2_regularization_from_weights(model):
     for p in model.parameters():
-        p.grad += p * 5e-4
+        if p.requires_grad and p.grad is not None:
+            p.grad += p * 5e-4
 
 
 def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode):
