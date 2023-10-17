@@ -49,14 +49,19 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def l2_regularization(model, device):
+def l2_regularization_from_loss(model, device):
     l2_norm = torch.tensor(0.0, device=device)
     for k, p in model.named_parameters():
-        l2_norm += p.norm()
+        l2_norm += p.norm() ** 2
     return l2_norm / 2.0
 
 
-def train(dataloader, model, model_, criterion, optimizer, epoch, custom_decay):
+def l2_regularization_from_weights(model):
+    for p in model.parameters():
+        p.grad += p * 5e-4
+
+
+def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode):
     print('\nEpoch: %d' % epoch)
     model.train()
     model_.train()
@@ -80,8 +85,14 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, custom_decay):
         with torch.no_grad():
             _ = model(inputs)  # update running stats
         loss = criterion(outputs, targets)
-        if custom_decay:
-            loss += l2_regularization(model, device) * 5e-4
+
+        if decay_mode == 'pytorch':
+            pass
+        elif decay_mode == 'loss':
+            loss += l2_regularization_from_loss(model, device) * 5e-4
+        elif decay_mode == 'weights':
+            l2_regularization_from_weights(model)
+
         loss.backward()
         transfer_gradients(model_, model)
         optimizer.step()
@@ -147,7 +158,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
-    parser.add_argument('--custom-decay', action='store_true', default=False)
+    parser.add_argument('--decay-mode', type=str, default='pytorch', choices=['pytorch', 'loss', 'weights'])
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
     args = parser.parse_args()

@@ -14,14 +14,8 @@ conda activate async
 delay=$1
 logfile="output/resnet18-delay_${delay}"
 
-custom_decay=$2
-if [ $custom_decay == 'true' ]; then
-  decay_cmd='--custom-decay'
-  logfile="${logfile}-custom_decay"
-else
-  decay_cmd=''
-  logfile="${logfile}-standard_decay"
-fi
+decay_mode=$2
+logfile="${logfile}-${decay_mode}"
 
 logfile="${logfile}.log"
-python -u main.py --lr 0.05 --delay $delay $decay_cmd | tee "${logfile}"
+python -u main.py --lr 0.05 --delay $delay --decay-mode $decay_mode | tee "${logfile}"
