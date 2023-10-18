@@ -4,6 +4,7 @@ import torch
 import wandb
 from time import time
 from collections import deque
+from sgd import sgd
 
 from utils import AverageMeter, ProgressMeter
 
@@ -16,11 +17,12 @@ def transfer_gradients(net_1, net_2):
             net_2.get_parameter(name).grad += param.grad.clone()
 
 
-def init_training_delay(dataloader, model, criterion, optimizer, delay):
+def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mode, decay_delayed):
     model.train()
     state_dict_queue = deque()
     for batch_idx, (inputs, targets) in enumerate(dataloader):
-        optimizer.zero_grad()
+        if optimizer is not None:
+            optimizer.zero_grad()
         state_dict_queue.appendleft({k: v.clone() for k, v in model.state_dict().items()})
         if batch_idx >= delay:
             break
@@ -29,7 +31,43 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay):
         outputs = model(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
-        optimizer.step()
+
+        # weight decay and backward pass
+        if decay_mode == 'pytorch':
+            loss.backward()
+        elif decay_mode == 'loss':
+            loss += l2_regularization_from_loss(model, device)
+            loss.backward()
+            loss.backward()
+        elif decay_mode == 'weights':
+            loss.backward()
+            l2_regularization_from_weights(model)
+
+        if optimizer is not None:
+            optimizer.step()
+        else:
+            with torch.no_grad():
+                if decay_mode == 'pytorch':
+                    if decay_delayed:
+                        raise ValueError('Delayed decay is not supported with pytorch decay mode.')
+                    else:
+                        sgd(params=[p for p in model.parameters()],
+                            d_p_list=[p.grad for p in model.parameters()],
+                            momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                            lr=model.learning_rate,
+                            momentum=model.momentum,
+                            dampening=0.0,
+                            weight_decay=model.weight_decay,
+                            nesterov=False, maximize=False)
+                elif decay_mode in ['loss', 'weights']:
+                    sgd(params=[p for p in model.parameters()],
+                        d_p_list=[p.grad for p in model.parameters()],
+                        momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                        lr=model.learning_rate,
+                        momentum=model.momentum,
+                        dampening=0.0,
+                        weight_decay=0.0,
+                        nesterov=False, maximize=False)
 
     return state_dict_queue
 
@@ -61,27 +99,36 @@ def l2_regularization_from_loss(model, device):
 
 def l2_regularization_from_weights(model):
     for p in model.parameters():
-        if p.requires_grad and p.grad is not None:
+        if p.requires_grad:
             p.grad += p * 5e-4
 
 
-def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, decay_delayed):
-    print('\nEpoch: %d' % epoch)
+def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, decay_delayed, use_wandb):
+    if optimizer is None:
+        print('\nEpoch: %d' % epoch, '- learning rate:', net.learning_rate)
+    else:
+        print('\nEpoch: %d' % epoch, '- learning rate:', optimizer.param_groups[0]['lr'])
+
+    # put model in traininig
     model.train()
     model_.train()
+
+    # trackers
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     progress = ProgressMeter(len(dataloader), [batch_time, data_time, losses, top1],
                              prefix="Train: [{}]".format(epoch))
+
     step = max(len(dataloader) // 10, 1)
     end = time()
     for batch_idx, (inputs, targets) in enumerate(dataloader):
         data_time.update(time() - end)
         inputs, targets = inputs.to(device), targets.to(device)
 
-        optimizer.zero_grad()
+        # load delayed weights and set grad to zero
+        model.zero_grad()
         model_.load_state_dict(model_.state_stack.pop())
         model_.zero_grad()
 
@@ -120,7 +167,31 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
                 l2_regularization_from_weights(model)
 
         # update
-        optimizer.step()
+        if optimizer is not None:
+            optimizer.step()
+        else:
+            with torch.no_grad():
+                if decay_mode == 'pytorch':
+                    if decay_delayed:
+                        raise ValueError('Delayed decay is not supported with pytorch decay mode.')
+                    else:
+                        sgd(params=[p for p in model.parameters()],
+                            d_p_list=[p.grad for p in model.parameters()],
+                            momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                            lr=model.learning_rate,
+                            momentum=model.momentum,
+                            dampening=0.0,
+                            weight_decay=model.weight_decay,
+                            nesterov=False, maximize=False)
+                elif decay_mode in ['loss', 'weights']:
+                    sgd(params=[p for p in model.parameters()],
+                        d_p_list=[p.grad for p in model.parameters()],
+                        momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                        lr=model.learning_rate,
+                        momentum=model.momentum,
+                        dampening=0.0,
+                        weight_decay=0.0,
+                        nesterov=False, maximize=False)
 
         # storing new model state
         model.zero_grad()
@@ -135,10 +206,11 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
         end = time()
 
     # log metrics
-    wandb.log({'loss/train': losses.avg, 'acc/train': top1.avg})
+    if use_wandb:
+        wandb.log({'loss/train': losses.avg, 'acc/train': top1.avg})
 
 
-def test(dataloader, model, criterion, epoch):
+def test(dataloader, model, criterion, epoch, use_wandb):
     model.eval()
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
@@ -159,9 +231,11 @@ def test(dataloader, model, criterion, epoch):
             batch_time.update(time() - end, n=inputs.size(0))
             end = time()
     # progress.display(batch_idx + 1)
-    print(f'Test Epoch {epoch} - Data {data_time.avg: 6.3f} - Time {batch_time.avg: 6.3f} - Loss {losses.avg: .4e} - Acc {top1.avg: 6.2f}')
+    print(
+        f'Test Epoch {epoch} - Data {data_time.avg: 6.3f} - Time {batch_time.avg: 6.3f} - Loss {losses.avg: .4e} - Acc {top1.avg: 6.2f}')
     # log metrics
-    wandb.log({'loss/test': losses.avg, 'acc/test': top1.avg})
+    if use_wandb:
+        wandb.log({'loss/test': losses.avg, 'acc/test': top1.avg})
 
     # Save checkpoint.
     acc = 100. * top1.avg
@@ -187,15 +261,22 @@ if __name__ == '__main__':
     from models.resnet import ResNet18
     import torch.optim as optim
 
+    start_time = time()
+
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
     parser.add_argument('--decay-mode', type=str, default='pytorch', choices=['pytorch', 'loss', 'weights'])
     parser.add_argument('--decay-delayed', action='store_true', default=False)
+    parser.add_argument('--optimizer', type=str, default='SGD', choices=['sgd-class', 'sgd-function'])
     parser.add_argument('--scheduler', type=str, default='steplr', choices=['steplr', 'onecycle'])
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
+    parser.add_argument('--no-wandb', action='store_true', help='no wandb logging')
     args = parser.parse_args()
+
+    args.wandb = not args.no_wandb
+    del args.no_wandb
 
     device = 'cuda' if torch.cuda.is_available() else torch.device('mps')
 
@@ -267,29 +348,49 @@ if __name__ == '__main__':
     criterion = torch.nn.CrossEntropyLoss()
 
     # Optimizer
-    if args.decay_mode == 'pytorch':
-        optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
-    elif args.decay_mode in ['loss', 'weights']:
-        optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
-    else:
-        raise ValueError(f'Wrong decay mode ({args.decay_mode})')
+    if args.optimizer == 'sgd-class':
+        if args.decay_mode == 'pytorch':
+            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+        elif args.decay_mode in ['loss', 'weights']:
+            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
+        else:
+            raise ValueError(f'Wrong decay mode ({args.decay_mode})')
+    elif args.optimizer == 'sgd-function':
+        net.learning_rate = args.lr
+        net.momentum = 0.9
+        net.weight_decay = 5e-4
+        optimizer = None
+        for p in net.parameters():
+            p.momentum_buf = None
 
     # Scheduler
-    if args.scheduler == 'steplr':
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
-    elif args.scheduler == 'onecycle':
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
-    else:
-        raise ValueError(f'Wrong scheduler type ({args.scheduler})')
+    if args.optimizer == 'sgd-class':
+        if args.scheduler == 'steplr':
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
+        elif args.scheduler == 'onecycle':
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+        else:
+            raise ValueError(f'Wrong scheduler type ({args.scheduler})')
 
     # Init delay
     print('\nInitliazing delay: %d' % args.delay)
-    net_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay)
-    os.environ["WANDB_MODE"] = "offline"
-    wandb.init(project='Delayed Gradients', entity='streethagore', config=args, group="uniform-delay")
+    net_.state_stack = init_training_delay(trainloader, net, criterion, optimizer, args.delay, args.decay_mode,
+                                           args.decay_delayed)
+
+    if args.wandb:
+        os.environ["WANDB_MODE"] = "offline"
+        wandb.init(project='Delayed Gradients', entity='streethagore', config=args, group="uniform-delay")
+
+    # training loop
     for epoch in range(start_epoch, start_epoch + 100):
-        train(trainloader, net, net_, criterion, optimizer, epoch, args.decay_mode, args.decay_delayed)
-        test(testloader, net, criterion, epoch)
-        scheduler.step()
-    wandb.summary["best-accuracy"] = net.best_acc
-    wandb.finish()
+        if args.optimizer == 'sgd-function' and epoch in [30, 60, 90]:
+            net.learning_rate *= 0.2
+        train(trainloader, net, net_, criterion, optimizer, epoch, args.decay_mode, args.decay_delayed, args.wandb)
+        test(testloader, net, criterion, epoch, args.wandb)
+        if args.optimizer == 'sgd-class':
+            scheduler.step()
+
+    if args.wandb:
+        wandb.summary["duration"] = time() - start_time
+        wandb.summary["best-accuracy"] = net.best_acc
+        wandb.finish()
