@@ -19,8 +19,8 @@ def transfer_gradients(net_1, net_2):
 
 def check_param_equality(model, parameters, gradients, momentum_buffers):
     for k, p in enumerate(model.parameters()):
-        if p.momentum_buf is None:
-            print('p.momentum_buf[k] is None')
+        if model.momentum_buffer_list[k] is None:
+            print('model.momentum_buffer_list[k] is None')
         if momentum_buffers[k] is None:
             print('momentum_buffers[k] is None')
         if not torch.allclose(p.data, parameters[k].data):
@@ -97,7 +97,7 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
                     else:
                         params, grads, momentums = sgd(params=[p for p in model.parameters()],
                             d_p_list=[p.grad for p in model.parameters()],
-                            momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                            momentum_buffer_list=model.momentum_buffer_list,
                             lr=model.learning_rate,
                             momentum=model.momentum,
                             dampening=0.0,
@@ -107,7 +107,7 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
                 elif decay_mode in ['loss', 'weights']:
                     params, grads, momentums = sgd(params=[p for p in model.parameters()],
                         d_p_list=[p.grad for p in model.parameters()],
-                        momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                        momentum_buffer_list=model.momentum_buffer_list,
                         lr=model.learning_rate,
                         momentum=model.momentum,
                         dampening=0.0,
@@ -192,7 +192,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
                     else:
                         params, grads, momentums = sgd(params=[p for p in model.parameters()],
                             d_p_list=[p.grad for p in model.parameters()],
-                            momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                            momentum_buffer_list=model.momentum_buffer_list,
                             lr=model.learning_rate,
                             momentum=model.momentum,
                             dampening=0.0,
@@ -202,7 +202,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
                 elif decay_mode in ['loss', 'weights']:
                     params, grads, momentums = sgd(params=[p for p in model.parameters()],
                         d_p_list=[p.grad for p in model.parameters()],
-                        momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
+                        momentum_buffer_list=model.momentum_buffer_list,
                         lr=model.learning_rate,
                         momentum=model.momentum,
                         dampening=0.0,
@@ -377,8 +377,7 @@ if __name__ == '__main__':
         net.momentum = 0.9
         net.weight_decay = 5e-4
         optimizer = None
-        for p in net.parameters():
-            p.momentum_buf = None
+        net.momentum_buffer_list = [None for p in net.parameters()]
 
     # Scheduler
     if args.optimizer == 'sgd-class':
