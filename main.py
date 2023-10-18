@@ -285,15 +285,15 @@ if __name__ == '__main__':
     parser.add_argument('--delay', default=0, type=int, help='delay')
     parser.add_argument('--decay-mode', type=str, default='pytorch', choices=['pytorch', 'loss', 'weights'])
     parser.add_argument('--decay-delayed', action='store_true', default=False)
-    parser.add_argument('--optimizer', type=str, default='SGD', choices=['sgd-class', 'sgd-function'])
+    parser.add_argument('--optimizer', type=str, default='sgd-class', choices=['sgd-class', 'sgd-function'])
     parser.add_argument('--scheduler', type=str, default='steplr', choices=['steplr', 'onecycle'])
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
     parser.add_argument('--no-wandb', action='store_true', help='no wandb logging')
     args = parser.parse_args()
-
     args.wandb = not args.no_wandb
     del args.no_wandb
+    print(args)
 
     device = 'cuda' if torch.cuda.is_available() else torch.device('mps')
 
