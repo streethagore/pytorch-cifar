@@ -18,7 +18,7 @@ def transfer_gradients(net_1, net_2):
 
 
 def check_param_equality(model, parameters, gradients, momentum_buffers):
-    for k, p in enumerate(net.parameters()):
+    for k, p in enumerate(model.parameters()):
         if not torch.allclose(p.data, parameters[k].data):
             raise ValueError(f'Parameter {k} is not updated properly')
         if not torch.allclose(p.grad.data, gradients[k].data):
