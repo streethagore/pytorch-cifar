@@ -191,7 +191,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
     parser.add_argument('--decay-mode', type=str, default='pytorch', choices=['pytorch', 'loss', 'weights'])
-    parser.add_argument('--decay-delayed', action='store_true', default=True)
+    parser.add_argument('--decay-delayed', action='store_true', default=False)
     parser.add_argument('--scheduler', type=str, default='steplr', choices=['steplr', 'onecycle'])
     parser.add_argument('--resume', '-r', action='store_true',
                         help='resume from checkpoint')
