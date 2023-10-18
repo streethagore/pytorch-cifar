@@ -17,6 +17,12 @@ def transfer_gradients(net_1, net_2):
             net_2.get_parameter(name).grad += param.grad.clone()
 
 
+def check_param_equality(model, parameters, gradientss, momentum_buffers):
+    for k, p in enumerate(net.parameters()):
+        if not torch.allclose(p.data, parameters[k].data):
+            raise ValueError(f'Parameter {k} is not updated properly')
+
+
 def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mode, decay_delayed):
     model.train()
     state_dict_queue = deque()
@@ -51,7 +57,7 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
                     if decay_delayed:
                         raise ValueError('Delayed decay is not supported with pytorch decay mode.')
                     else:
-                        sgd(params=[p for p in model.parameters()],
+                        params, grads, momentums = sgd(params=[p for p in model.parameters()],
                             d_p_list=[p.grad for p in model.parameters()],
                             momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
                             lr=model.learning_rate,
@@ -59,6 +65,7 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
                             dampening=0.0,
                             weight_decay=model.weight_decay,
                             nesterov=False, maximize=False)
+                        check_param_equality(model, params, grads, momentums)
                 elif decay_mode in ['loss', 'weights']:
                     sgd(params=[p for p in model.parameters()],
                         d_p_list=[p.grad for p in model.parameters()],

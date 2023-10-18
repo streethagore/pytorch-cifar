@@ -34,3 +34,5 @@ def sgd(params: List[Tensor],
                 d_p = buf
 
         param.add_(d_p, alpha=-lr)
+
+    return params, d_p_list, momentum_buffer_list
