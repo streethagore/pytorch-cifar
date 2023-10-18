@@ -17,12 +17,14 @@ def transfer_gradients(net_1, net_2):
             net_2.get_parameter(name).grad += param.grad.clone()
 
 
-def check_param_equality(model, parameters, gradientss, momentum_buffers):
+def check_param_equality(model, parameters, gradients, momentum_buffers):
     for k, p in enumerate(net.parameters()):
         if not torch.allclose(p.data, parameters[k].data):
             raise ValueError(f'Parameter {k} is not updated properly')
-        if not torch.allclose(p.grad.data, parameters[k].grad.data):
-            raise ValueError(f'Parameter {k} is not updated properly')
+        if not torch.allclose(p.grad.data, gradients[k].data):
+            raise ValueError(f'Gradient {k} is not computed properly')
+        if not torch.allclose(p.momentum_buf.data, momentum_buffers[k].data):
+            raise ValueError(f'Momentum buffer {k} is not computed properly')
 
 
 def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mode, decay_delayed):
