@@ -27,6 +27,37 @@ def check_param_equality(model, parameters, gradients, momentum_buffers):
             raise ValueError(f'Momentum buffer {k} is not computed properly')
 
 
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
+
+
+def l2_regularization_from_loss(model, device):
+    l2_norm = torch.tensor(0.0, device=device)
+    for k, p in model.named_parameters():
+        if p.requires_grad:
+            l2_norm += p.norm() ** 2
+    return 5e-4 * l2_norm / 2.0
+
+
+def l2_regularization_from_weights(model):
+    for p in model.parameters():
+        if p.requires_grad:
+            p.grad += p * 5e-4
+
+
 def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mode, decay_delayed):
     model.train()
     state_dict_queue = deque()
@@ -70,7 +101,7 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
                             nesterov=False, maximize=False)
                         check_param_equality(model, params, grads, momentums)
                 elif decay_mode in ['loss', 'weights']:
-                    sgd(params=[p for p in model.parameters()],
+                    params, grads, momentums = sgd(params=[p for p in model.parameters()],
                         d_p_list=[p.grad for p in model.parameters()],
                         momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
                         lr=model.learning_rate,
@@ -78,39 +109,9 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
                         dampening=0.0,
                         weight_decay=0.0,
                         nesterov=False, maximize=False)
+                    check_param_equality(model, params, grads, momentums)
 
     return state_dict_queue
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
-
-
-def l2_regularization_from_loss(model, device):
-    l2_norm = torch.tensor(0.0, device=device)
-    for k, p in model.named_parameters():
-        if p.requires_grad:
-            l2_norm += p.norm() ** 2
-    return 5e-4 * l2_norm / 2.0
-
-
-def l2_regularization_from_weights(model):
-    for p in model.parameters():
-        if p.requires_grad:
-            p.grad += p * 5e-4
 
 
 def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, decay_delayed, use_wandb):
@@ -185,7 +186,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
                     if decay_delayed:
                         raise ValueError('Delayed decay is not supported with pytorch decay mode.')
                     else:
-                        sgd(params=[p for p in model.parameters()],
+                        params, grads, momentums = sgd(params=[p for p in model.parameters()],
                             d_p_list=[p.grad for p in model.parameters()],
                             momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
                             lr=model.learning_rate,
@@ -193,8 +194,9 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
                             dampening=0.0,
                             weight_decay=model.weight_decay,
                             nesterov=False, maximize=False)
+                        check_param_equality(model, params, grads, momentums)
                 elif decay_mode in ['loss', 'weights']:
-                    sgd(params=[p for p in model.parameters()],
+                    params, grads, momentums = sgd(params=[p for p in model.parameters()],
                         d_p_list=[p.grad for p in model.parameters()],
                         momentum_buffer_list=[p.momentum_buf for p in model.parameters()],
                         lr=model.learning_rate,
@@ -202,6 +204,7 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
                         dampening=0.0,
                         weight_decay=0.0,
                         nesterov=False, maximize=False)
+                    check_param_equality(model, params, grads, momentums)
 
         # storing new model state
         model.zero_grad()
