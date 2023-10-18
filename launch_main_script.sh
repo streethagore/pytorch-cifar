@@ -22,7 +22,7 @@ if [ $decay_delayed == 'true' ]; then
   decay_delayed_cmd='--decay-delayed'
   logfile="${logfile}_delayed"
 elif [ $decay_delayed == 'false' ]; then
-  decay_delayed_cmd='--decay-delayed'
+  decay_delayed_cmd=''
 fi
 
 logfile="${logfile}.log"
