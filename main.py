@@ -112,12 +112,12 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
         elif decay_mode == 'weights':
             if decay_delayed:
                 loss.backward()
-                l2_regularization_from_weights(model_, device)
+                l2_regularization_from_weights(model_)
                 transfer_gradients(model_, model)
             else:
                 loss.backward()
                 transfer_gradients(model_, model)
-                l2_regularization_from_weights(model, device)
+                l2_regularization_from_weights(model)
 
         # update
         optimizer.step()
