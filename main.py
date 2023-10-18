@@ -44,9 +44,8 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
         if decay_mode == 'pytorch':
             loss.backward()
         elif decay_mode == 'loss':
-            loss += l2_regularization_from_loss(model, device)
             loss.backward()
-            loss.backward()
+            l2_regularization_from_loss(model, device).backward()
         elif decay_mode == 'weights':
             loss.backward()
             l2_regularization_from_weights(model)
