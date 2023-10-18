@@ -27,7 +27,7 @@ def check_param_equality(model, parameters, gradients, momentum_buffers):
             raise ValueError(f'Parameter {k} is not updated properly')
         if not torch.allclose(p.grad.data, gradients[k].data):
             raise ValueError(f'Gradient {k} is not computed properly')
-        if not torch.allclose(p.momentum_buf.data, momentum_buffers[k].data):
+        if not torch.allclose(model.momentum_buffer_list[k].data, momentum_buffers[k].data):
             raise ValueError(f'Momentum buffer {k} is not computed properly')
 
 
