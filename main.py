@@ -25,7 +25,6 @@ def check_param_equality(model, parameters, gradientss, momentum_buffers):
             raise ValueError(f'Parameter {k} is not updated properly')
 
 
-
 def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mode, decay_delayed):
     model.train()
     state_dict_queue = deque()
