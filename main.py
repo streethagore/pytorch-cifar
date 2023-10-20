@@ -283,6 +283,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
     parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
     parser.add_argument('--delay', default=0, type=int, help='delay')
+    parser.add_argument('--momentum', default=0.9, type=float, help='momentum for SGD')
+    parser.add_argument('--weight-decay', default=5e-4, type=float, help='l2 regularization')
     parser.add_argument('--decay-mode', type=str, default='pytorch', choices=['pytorch', 'loss', 'weights'])
     parser.add_argument('--decay-delayed', action='store_true', default=False)
     parser.add_argument('--optimizer', type=str, default='sgd-class', choices=['sgd-class', 'sgd-function'])
@@ -367,15 +369,15 @@ if __name__ == '__main__':
     # Optimizer
     if args.optimizer == 'sgd-class':
         if args.decay_mode == 'pytorch':
-            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
+            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
         elif args.decay_mode in ['loss', 'weights']:
-            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0)
+            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
         else:
             raise ValueError(f'Wrong decay mode ({args.decay_mode})')
     elif args.optimizer == 'sgd-function':
         net.learning_rate = args.lr
-        net.momentum = 0.9
-        net.weight_decay = 5e-4
+        net.momentum = args.momentum
+        net.weight_decay = args.weight_decay
         optimizer = None
         net.momentum_buffer_list = [None for p in net.parameters()]
 
@@ -399,12 +401,14 @@ if __name__ == '__main__':
 
     # training loop
     for epoch in range(start_epoch, start_epoch + 100):
+        timestep = time()
         if args.optimizer == 'sgd-function' and epoch in [30, 60, 90]:
             net.learning_rate *= 0.2
         train(trainloader, net, net_, criterion, optimizer, epoch, args.decay_mode, args.decay_delayed, args.wandb)
         test(testloader, net, criterion, epoch, args.wandb)
         if args.optimizer == 'sgd-class':
             scheduler.step()
+        print(f'Epoch duration: {time() - timestep} secs')
 
     if args.wandb:
         wandb.summary["duration"] = time() - start_time
