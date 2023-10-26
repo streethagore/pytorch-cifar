@@ -48,18 +48,18 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def l2_regularization_from_loss(model, device):
+def l2_regularization_from_loss(model, gamma, device):
     l2_norm = torch.tensor(0.0, device=device)
     for k, p in model.named_parameters():
         if p.requires_grad:
             l2_norm += p.norm() ** 2
-    return 5e-4 * l2_norm / 2.0
+    return gamma * l2_norm / 2.0
 
 
-def l2_regularization_from_weights(model):
+def l2_regularization_from_weights(model, gamma):
     for p in model.parameters():
         if p.requires_grad:
-            p.grad += p * 5e-4
+            p.grad += p * gamma
 
 
 def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mode, decay_delayed):
@@ -82,10 +82,10 @@ def init_training_delay(dataloader, model, criterion, optimizer, delay, decay_mo
             loss.backward()
         elif decay_mode == 'loss':
             loss.backward()
-            l2_regularization_from_loss(model, device).backward()
+            l2_regularization_from_loss(model, model.weight_decay, device).backward()
         elif decay_mode == 'weights':
             loss.backward()
-            l2_regularization_from_weights(model)
+            l2_regularization_from_weights(model, model.weight_decay)
 
         if optimizer is not None:
             optimizer.step()
@@ -162,11 +162,11 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
                 transfer_gradients(model_, model)
         elif decay_mode == 'loss':
             if decay_delayed:
-                loss_regularized = loss + l2_regularization_from_loss(model_, device)
+                loss_regularized = loss + l2_regularization_from_loss(model_, model.weight_decay, device)
                 loss_regularized.backward()
                 transfer_gradients(model_, model)
             else:
-                regularization = l2_regularization_from_loss(model, device)
+                regularization = l2_regularization_from_loss(model, model.weight_decay, device)
                 regularization.backward()
 
                 loss.backward()
@@ -174,12 +174,12 @@ def train(dataloader, model, model_, criterion, optimizer, epoch, decay_mode, de
         elif decay_mode == 'weights':
             if decay_delayed:
                 loss.backward()
-                l2_regularization_from_weights(model_)
+                l2_regularization_from_weights(model_, model.weight_decay)
                 transfer_gradients(model_, model)
             else:
                 loss.backward()
                 transfer_gradients(model_, model)
-                l2_regularization_from_weights(model)
+                l2_regularization_from_weights(model, model.weight_decay)
 
         # update
         if optimizer is not None:
