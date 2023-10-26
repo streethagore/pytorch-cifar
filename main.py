@@ -371,7 +371,7 @@ if __name__ == '__main__':
         if args.decay_mode == 'pytorch':
             optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
         elif args.decay_mode in ['loss', 'weights']:
-            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+            optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=0.0)
         else:
             raise ValueError(f'Wrong decay mode ({args.decay_mode})')
     elif args.optimizer == 'sgd-function':
