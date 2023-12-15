@@ -87,16 +87,16 @@ class ConvLayer(nn.Module):
 net = nn.Sequential(
     ConvLayer(3, 64),
     ConvLayer(64, 64),
-    # nn.AvgPool2d(2),
-    # ConvLayer(64, 128),
-    # ConvLayer(128, 128),
+    nn.AvgPool2d(2),
+    ConvLayer(64, 128),
+    ConvLayer(128, 128),
     # nn.AvgPool2d(2),
     # ConvLayer(128, 256),
     # ConvLayer(256, 256),
     # ConvLayer(256, 256),
-    nn.AdaptiveAvgPool2d(1),
+    nn.AdaptiveAvgPool2d(2),
     nn.Flatten(),
-    nn.Linear(64, 10)
+    nn.Linear(4*128, 10)
     )
 
 print(net)
