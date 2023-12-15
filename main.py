@@ -21,7 +21,7 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 args = parser.parse_args()
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'mps'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
@@ -42,12 +42,12 @@ transform_test = transforms.Compose([
 trainset = torchvision.datasets.CIFAR10(
     root='./data', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=128, shuffle=True, num_workers=2)
+    trainset, batch_size=128, shuffle=True, num_workers=0)
 
 testset = torchvision.datasets.CIFAR10(
     root='./data', train=False, download=True, transform=transform_test)
 testloader = torch.utils.data.DataLoader(
-    testset, batch_size=100, shuffle=False, num_workers=2)
+    testset, batch_size=100, shuffle=False, num_workers=0)
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer',
            'dog', 'frog', 'horse', 'ship', 'truck')
@@ -69,7 +69,38 @@ net = ResNet18()
 # net = EfficientNetB0()
 # net = RegNetX_200MF()
 # net = SimpleDLA()
-net = net.to(device)
+
+
+class ConvLayer(nn.Module):
+    def __init__(self, n_in, n_out):
+        super(ConvLayer, self).__init__()
+        self.bn = nn.BatchNorm2d(n_in, affine=False)
+        self.conv = nn.Conv2d(n_in, n_out, 3, 1, 1)
+        self.eps = nn.Parameter(torch.zeros(n_out, 1, 1))
+
+    def forward(self, x):
+        y = self.conv(self.bn(x))
+        a = torch.exp(-y)
+        z = torch.log(a + self.eps)
+        return z
+
+net = nn.Sequential(
+    ConvLayer(3, 64),
+    ConvLayer(64, 64),
+    # nn.AvgPool2d(2),
+    # ConvLayer(64, 128),
+    # ConvLayer(128, 128),
+    # nn.AvgPool2d(2),
+    # ConvLayer(128, 256),
+    # ConvLayer(256, 256),
+    # ConvLayer(256, 256),
+    nn.AdaptiveAvgPool2d(1),
+    nn.Flatten(),
+    nn.Linear(64, 10)
+    )
+
+print(net)
+net.to(device)
 if device == 'cuda':
     # net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
@@ -86,8 +117,8 @@ if args.resume:
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
+# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.2)
 
 
 # Training
