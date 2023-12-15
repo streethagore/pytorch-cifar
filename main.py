@@ -76,7 +76,7 @@ class ConvLayer(nn.Module):
         super(ConvLayer, self).__init__()
         self.conv = nn.Conv2d(n_in, n_out, 3, 1, 1)
         self.bn = nn.BatchNorm2d(n_out)
-        self.eps = nn.Parameter(torch.zeros(n_out, 1, 1))
+        self.eps = nn.Parameter(torch.ones(n_out, 1, 1)*1e-2)
 
     def forward(self, x):
         y = self.bn(self.conv(x))
