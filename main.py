@@ -74,12 +74,12 @@ net = ResNet18()
 class ConvLayer(nn.Module):
     def __init__(self, n_in, n_out):
         super(ConvLayer, self).__init__()
-        self.bn = nn.BatchNorm2d(n_in, affine=False)
         self.conv = nn.Conv2d(n_in, n_out, 3, 1, 1)
+        self.bn = nn.BatchNorm2d(n_out)
         self.eps = nn.Parameter(torch.zeros(n_out, 1, 1))
 
     def forward(self, x):
-        y = self.conv(self.bn(x))
+        y = self.bn(self.conv(x))
         a = torch.exp(-y)
         z = torch.log(a + self.eps)
         return z
